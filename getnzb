@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# setup
+# for each indexer  which requires login, need to save off the curl command line to fetch with the cookies
+# e.g.
+# 1. in firefox, open web developer tools, network
+# 2. go to your indexer website, e.g. drunkenslug.com and login
+# 3. on the "get" URL for the indexer, right click, "Copy Value" -> "Copy as cURL"
+# 4. each indexer will have its own stanza in the case statement below to invoke curl with the indexers cookies
+
+# newsboat will launch this script with $1 being the URL of the rss item
+
+# configure the base directory where the nzb downloader resides.
+# files will be downloaded to a tmp sub directory first and then moved after download to a "nzb" directory
+# this "nzb" directory is the "watched" folder - nzbget and sabnzbd both support this feature.
+# a sub directory of the "watch" directory matches up with the "category" configured within the downloader,
+# e.g. this can control where downloads go
+base="/local/optimus/docker_data/sabnzbd/config/"
+cd $base/tmp
+
+# use curl with the -O -J options, which will get the filename from the remote side, usually
+# more meaningful than the rss feed filename.
+case $1 in
+    *"nzb.su"*)
+        curl  "$1" -O -J  -H 'User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Connection: keep-alive' -H 'Cookie: PHPSESSID=XXXXXXXXXXXXXXXXXXXXXXXXXX; uid=XXXXXX; idh=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX; suid=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX; suid=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: none' -H 'Sec-Fetch-User: ?1'
+        file=$(ls -lartx1 *.nzb |tail -1)
+    ;;
+    *"porndb.me"*)
+        curl "$1" -O -J -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:100.0) Gecko/20100101 Firefox/100.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Connection: keep-alive' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: cross-site' -H 'TE: trailers'
+        file=$(ls -lartx1 *.nzb |tail -1)
+    ;;
+    *"drunken"*)
+        curl "$1" -O -J  --compressed -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Referer: http://192.168.29.8/' -H 'Alt-Used: drunkenslug.com' -H 'Connection: keep-alive' -H 'Cookie: cf_clearance=RXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX; uid=XXXXXX; idh=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX; PHPSESSID=XXXXXXXXXXXXXXXXXXXXXXXXXX' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: cross-site' -H 'Sec-Fetch-User: ?1' -H 'TE: trailers'
+        file=$(ls -lartx1 *.nzb |tail -1)
+    ;;
+    *)
+        echo "unsupported site $1, exiting" >> /tmp/log
+        exit;
+    ;;
+
+esac
+
+# check the resulting nzb file, it should be an XML file
+filetype=$(file $base/tmp/$file |awk '{print $2}');
+
+# can add some extra logic to look for keywords in the filename to determine where to put the file
+# I default move things to the XXX category and then I move elsewhere if needed.
+
+if [ "$filetype" == "XML" ]; then
+    echo "extracted $newfile from nzb file $file  ($filetype), saving to nzbget queue" >> /tmp/log
+    mv  $base/tmp/$file  $base/nzb/XXX/
+else
+    echo "extracted $newfile from nzb file $file  ($filetype), Not a valid nzb XML file , deleting" >> /tmp/log
+    rm  $base/tmp/$file
+fi
